@@ -9,8 +9,15 @@
     :root {
       --mx: 55%;
       --my: 42%;
-      --parallax-x: 0;
-      --parallax-y: 0;
+      --photo-x: 0px;
+      --photo-y: 0px;
+      --title-x: 0px;
+      --title-y: 0px;
+      --title-glow: .34;
+      --title-glow-size: 28px;
+      --title-spacing: 0px;
+      --title-shadow-x: 0px;
+      --title-shadow-y: 0px;
     }
 
     * {
@@ -27,7 +34,7 @@
     }
 
     body {
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Roboto, "Helvetica Neue", Arial, Helvetica, sans-serif;
     }
 
     .hero {
@@ -51,8 +58,8 @@
       background-position: center;
       filter: saturate(1.12) contrast(1.06);
       transform: translate3d(
-          calc(var(--parallax-x) * -14px),
-          calc(var(--parallax-y) * -9px),
+          var(--photo-x),
+          var(--photo-y),
           0
         )
         scale(1.035);
@@ -105,9 +112,70 @@
         linear-gradient(to bottom, rgba(0, 0, 0, .1), transparent 32%, rgba(0, 0, 0, .22));
     }
 
+    .brand-title {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 4;
+      margin: 0;
+      color: rgba(255, 255, 255, .94);
+      font-size: clamp(44px, 5.8vw, 86px);
+      font-weight: 300;
+      line-height: 1;
+      letter-spacing: var(--title-spacing);
+      text-align: center;
+      text-rendering: geometricPrecision;
+      text-shadow:
+        0 1px 1px rgba(0, 0, 0, .32),
+        0 14px 42px rgba(0, 0, 0, .28),
+        0 0 var(--title-glow-size) rgba(204, 226, 255, var(--title-glow));
+      transform:
+        translate3d(-50%, -50%, 0)
+        translate3d(var(--title-x), var(--title-y), 0);
+      user-select: none;
+      pointer-events: none;
+      will-change: transform, letter-spacing, text-shadow;
+    }
+
+    .brand-title::before {
+      content: attr(data-title);
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      color: rgba(165, 105, 255, .24);
+      filter: blur(16px);
+      transform: translate3d(var(--title-shadow-x), var(--title-shadow-y), 0);
+    }
+
+    .brand-title span {
+      display: inline-block;
+      animation: letter-drift 6.8s ease-in-out infinite;
+      animation-delay: var(--delay);
+    }
+
+    @keyframes letter-drift {
+      0%,
+      100% {
+        transform: translate3d(0, 0, 0);
+      }
+      50% {
+        transform: translate3d(0, -3px, 0);
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .photo-layer {
         transform: scale(1.025);
+      }
+
+      .brand-title span {
+        animation: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .brand-title {
+        font-size: clamp(38px, 13vw, 62px);
       }
     }
   </style>
@@ -118,6 +186,9 @@
     <canvas id="field"></canvas>
     <div class="grain"></div>
     <div class="edge-shade"></div>
+    <h1 class="brand-title" data-title="VisLab" aria-label="VisLab">
+      <span style="--delay: 0ms">V</span><span style="--delay: -720ms">i</span><span style="--delay: -1440ms">s</span><span style="--delay: -2160ms">L</span><span style="--delay: -2880ms">a</span><span style="--delay: -3600ms">b</span>
+    </h1>
   </main>
 
   <script>
@@ -151,8 +222,15 @@
       pointer.ty = event.clientY / Math.max(1, height);
       root.style.setProperty("--mx", (pointer.tx * 100).toFixed(2) + "%");
       root.style.setProperty("--my", (pointer.ty * 100).toFixed(2) + "%");
-      root.style.setProperty("--parallax-x", (pointer.tx - 0.5).toFixed(3));
-      root.style.setProperty("--parallax-y", (pointer.ty - 0.5).toFixed(3));
+      root.style.setProperty("--photo-x", ((pointer.tx - 0.5) * -14).toFixed(2) + "px");
+      root.style.setProperty("--photo-y", ((pointer.ty - 0.5) * -9).toFixed(2) + "px");
+      root.style.setProperty("--title-x", ((pointer.tx - 0.5) * 18).toFixed(2) + "px");
+      root.style.setProperty("--title-y", ((pointer.ty - 0.5) * 12).toFixed(2) + "px");
+      root.style.setProperty("--title-glow", (0.28 + Math.max(0, 1 - Math.hypot(pointer.tx - 0.5, pointer.ty - 0.5) * 1.7) * 0.32).toFixed(3));
+      root.style.setProperty("--title-glow-size", (18 + Math.max(0, 1 - Math.hypot(pointer.tx - 0.5, pointer.ty - 0.5) * 1.7) * 28).toFixed(2) + "px");
+      root.style.setProperty("--title-spacing", (Math.max(0, 1 - Math.hypot(pointer.tx - 0.5, pointer.ty - 0.5) * 2) * 0.8).toFixed(2) + "px");
+      root.style.setProperty("--title-shadow-x", ((pointer.tx - 0.5) * -7.2).toFixed(2) + "px");
+      root.style.setProperty("--title-shadow-y", ((pointer.ty - 0.5) * -4.2).toFixed(2) + "px");
     }, { passive: true });
 
     const glyphs = ["·", "›", "•", "○", "—"];
