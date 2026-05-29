@@ -16,10 +16,6 @@
       --title-spacing: 0px;
       --title-shadow-x: 0px;
       --title-shadow-y: 0px;
-      --lens-x: 50vw;
-      --lens-y: 50vh;
-      --lens-opacity: 0;
-      --lens-scale: .86;
     }
 
     * {
@@ -108,30 +104,6 @@
         linear-gradient(to bottom, rgba(0, 0, 0, .1), transparent 32%, rgba(0, 0, 0, .22));
     }
 
-    .cursor-lens {
-      position: absolute;
-      left: 0;
-      top: 0;
-      z-index: 4;
-      width: 178px;
-      height: 178px;
-      border-radius: 999px;
-      pointer-events: none;
-      opacity: var(--lens-opacity);
-      transform:
-        translate3d(calc(var(--lens-x) - 89px), calc(var(--lens-y) - 89px), 0)
-        scale(var(--lens-scale));
-      background:
-        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .08), rgba(176, 218, 255, .035) 42%, rgba(111, 72, 190, .025) 64%, transparent 72%);
-      border: 1px solid rgba(232, 242, 255, .2);
-      box-shadow:
-        inset 0 0 38px rgba(210, 230, 255, .12),
-        0 0 42px rgba(160, 110, 255, .18);
-      -webkit-backdrop-filter: blur(5px) saturate(1.18) brightness(1.04);
-      backdrop-filter: blur(5px) saturate(1.18) brightness(1.04);
-      will-change: transform, opacity;
-    }
-
     .brand-title {
       position: absolute;
       left: 50%;
@@ -192,9 +164,6 @@
         animation: none;
       }
 
-      .cursor-lens {
-        display: none;
-      }
     }
 
     @media (max-width: 720px) {
@@ -210,7 +179,6 @@
     <canvas id="field"></canvas>
     <div class="grain"></div>
     <div class="edge-shade"></div>
-    <div class="cursor-lens" aria-hidden="true"></div>
     <h1 class="brand-title" data-title="VisLab" aria-label="VisLab">
       <span style="--delay: 0ms">V</span><span style="--delay: -720ms">i</span><span style="--delay: -1440ms">s</span><span style="--delay: -2160ms">L</span><span style="--delay: -2880ms">a</span><span style="--delay: -3600ms">b</span>
     </h1>
@@ -266,10 +234,6 @@
 
       root.style.setProperty("--mx", (pointer.tx * 100).toFixed(2) + "%");
       root.style.setProperty("--my", (pointer.ty * 100).toFixed(2) + "%");
-      root.style.setProperty("--lens-x", (pointer.tx * width).toFixed(2) + "px");
-      root.style.setProperty("--lens-y", (pointer.ty * height).toFixed(2) + "px");
-      root.style.setProperty("--lens-opacity", (mask * 0.74).toFixed(3));
-      root.style.setProperty("--lens-scale", (0.82 + mask * 0.2).toFixed(3));
       root.style.setProperty("--title-x", (dx * 12).toFixed(2) + "px");
       root.style.setProperty("--title-y", (dy * 8).toFixed(2) + "px");
       root.style.setProperty("--title-glow", (0.28 + centerPull * 0.32).toFixed(3));
@@ -305,21 +269,21 @@
       }
     }
 
-    const ripples = [];
+    const bursts = [];
 
     window.addEventListener("pointerdown", (event) => {
       const x = event.clientX / Math.max(1, width);
       const y = event.clientY / Math.max(1, height);
       const mask = wallMask(x, y);
       if (mask > 0.08) {
-        ripples.push({
+        bursts.push({
           x,
           y,
           start: performance.now(),
           strength: mask
         });
-        if (ripples.length > 5) {
-          ripples.shift();
+        if (bursts.length > 6) {
+          bursts.shift();
         }
       }
     }, { passive: true });
@@ -356,15 +320,15 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      const activeRipples = [];
-      for (const ripple of ripples) {
-        const age = (ms - ripple.start) / 900;
+      const activeBursts = [];
+      for (const burst of bursts) {
+        const age = (ms - burst.start) / 760;
         if (age < 1) {
-          activeRipples.push(ripple);
+          activeBursts.push(burst);
         }
       }
-      ripples.length = 0;
-      ripples.push(...activeRipples);
+      bursts.length = 0;
+      bursts.push(...activeBursts);
 
       for (const g of glyphField) {
         const drift = (t * 0.018 * g.speed + g.phase) % 1;
@@ -380,25 +344,32 @@
         const dx = baseX - pointer.x * width;
         const dy = baseY - pointer.y * height;
         const dist = Math.hypot(dx, dy);
-        const influence = Math.max(0, 1 - dist / 210);
-        let rippleBoost = 0;
+        const influence = Math.max(0, 1 - dist / 240);
+        let burstBoost = 0;
+        let burstPhase = 0;
 
-        for (const ripple of ripples) {
-          const age = (ms - ripple.start) / 900;
-          const ring = age * 250;
-          const rd = Math.hypot(baseX - ripple.x * width, baseY - ripple.y * height);
-          rippleBoost += Math.max(0, 1 - Math.abs(rd - ring) / 34) * (1 - age) * ripple.strength;
+        for (const burst of bursts) {
+          const age = (ms - burst.start) / 760;
+          const rd = Math.hypot(baseX - burst.x * width, baseY - burst.y * height);
+          const local = Math.max(0, 1 - rd / 190);
+          const wave = 0.5 + 0.5 * Math.sin(age * Math.PI * 7 - rd * 0.045);
+          const boost = local * (1 - age) * (0.45 + wave * 0.55) * burst.strength;
+          burstBoost += boost;
+          burstPhase += boost * wave;
         }
 
-        const push = influence * 18 + rippleBoost * 16;
+        const push = influence * 22 + burstBoost * 30;
         const safeDist = Math.max(1, dist);
         const x = baseX + (dx / safeDist) * push;
-        const y = baseY + (dy / safeDist) * push + Math.sin(t * 1.8 + g.phase) * influence * 3;
+        const y = baseY + (dy / safeDist) * push + Math.sin(t * 1.8 + g.phase) * influence * 3 - burstBoost * 5;
         const pulse = 0.5 + 0.5 * Math.sin(t * 1.4 + g.phase);
-        const alpha = Math.min(0.82, 0.06 + mask * 0.18 + influence * 0.48 + rippleBoost * 0.42 + pulse * 0.04);
+        const alpha = Math.min(0.9, 0.055 + mask * 0.16 + influence * 0.5 + burstBoost * 0.58 + pulse * 0.035);
+        const glyph = burstBoost > 0.18
+          ? glyphs[(Math.floor((g.phase + burstPhase) * 10) + glyphs.length) % glyphs.length]
+          : (influence > 0.46 ? ">" : g.glyph);
 
         ctx.fillStyle = `rgba(238,246,255,${alpha})`;
-        ctx.fillText(g.glyph, x, y);
+        ctx.fillText(glyph, x, y);
       }
 
       ctx.lineWidth = 1;
@@ -420,20 +391,12 @@
         ctx.stroke();
       }
 
-      for (const ripple of ripples) {
-        const age = (ms - ripple.start) / 900;
-        const radius = age * 250;
-        const alpha = (1 - age) * ripple.strength;
-        ctx.strokeStyle = `rgba(230,244,255,${alpha * 0.42})`;
-        ctx.lineWidth = 1 + alpha * 2;
-        ctx.beginPath();
-        ctx.arc(ripple.x * width, ripple.y * height, radius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.strokeStyle = `rgba(176,130,255,${alpha * 0.26})`;
-        ctx.beginPath();
-        ctx.arc(ripple.x * width, ripple.y * height, radius * 0.62, 0, Math.PI * 2);
-        ctx.stroke();
+      ctx.globalCompositeOperation = "screen";
+      for (const burst of bursts) {
+        const age = (ms - burst.start) / 760;
+        drawBlob(burst.x * width, burst.y * height, Math.max(width, height) * (0.06 + age * 0.04),
+          `rgba(232,244,255,${(1 - age) * burst.strength * 0.12})`,
+          "rgba(232,244,255,0)");
       }
 
       if (!prefersReducedMotion) {
