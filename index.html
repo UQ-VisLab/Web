@@ -9,8 +9,6 @@
     :root {
       --mx: 55%;
       --my: 42%;
-      --photo-x: 0px;
-      --photo-y: 0px;
       --title-x: 0px;
       --title-y: 0px;
       --title-glow: .34;
@@ -18,6 +16,10 @@
       --title-spacing: 0px;
       --title-shadow-x: 0px;
       --title-shadow-y: 0px;
+      --lens-x: 50vw;
+      --lens-y: 50vh;
+      --lens-opacity: 0;
+      --lens-scale: .86;
     }
 
     * {
@@ -57,13 +59,7 @@
       background-size: cover;
       background-position: center;
       filter: saturate(1.12) contrast(1.06);
-      transform: translate3d(
-          var(--photo-x),
-          var(--photo-y),
-          0
-        )
-        scale(1.035);
-      will-change: transform;
+      transform: scale(1.025);
     }
 
     .photo-layer::after {
@@ -112,11 +108,35 @@
         linear-gradient(to bottom, rgba(0, 0, 0, .1), transparent 32%, rgba(0, 0, 0, .22));
     }
 
+    .cursor-lens {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 4;
+      width: 178px;
+      height: 178px;
+      border-radius: 999px;
+      pointer-events: none;
+      opacity: var(--lens-opacity);
+      transform:
+        translate3d(calc(var(--lens-x) - 89px), calc(var(--lens-y) - 89px), 0)
+        scale(var(--lens-scale));
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .08), rgba(176, 218, 255, .035) 42%, rgba(111, 72, 190, .025) 64%, transparent 72%);
+      border: 1px solid rgba(232, 242, 255, .2);
+      box-shadow:
+        inset 0 0 38px rgba(210, 230, 255, .12),
+        0 0 42px rgba(160, 110, 255, .18);
+      -webkit-backdrop-filter: blur(5px) saturate(1.18) brightness(1.04);
+      backdrop-filter: blur(5px) saturate(1.18) brightness(1.04);
+      will-change: transform, opacity;
+    }
+
     .brand-title {
       position: absolute;
       left: 50%;
       top: 50%;
-      z-index: 4;
+      z-index: 5;
       margin: 0;
       color: rgba(255, 255, 255, .94);
       font-size: clamp(44px, 5.8vw, 86px);
@@ -171,6 +191,10 @@
       .brand-title span {
         animation: none;
       }
+
+      .cursor-lens {
+        display: none;
+      }
     }
 
     @media (max-width: 720px) {
@@ -186,6 +210,7 @@
     <canvas id="field"></canvas>
     <div class="grain"></div>
     <div class="edge-shade"></div>
+    <div class="cursor-lens" aria-hidden="true"></div>
     <h1 class="brand-title" data-title="VisLab" aria-label="VisLab">
       <span style="--delay: 0ms">V</span><span style="--delay: -720ms">i</span><span style="--delay: -1440ms">s</span><span style="--delay: -2160ms">L</span><span style="--delay: -2880ms">a</span><span style="--delay: -3600ms">b</span>
     </h1>
@@ -194,7 +219,6 @@
   <script>
     const canvas = document.getElementById("field");
     const ctx = canvas.getContext("2d", { alpha: true });
-    const photo = document.getElementById("photo");
     const root = document.documentElement;
 
     const pointer = { x: 0.58, y: 0.42, tx: 0.58, ty: 0.42 };
@@ -217,40 +241,88 @@
     window.addEventListener("resize", resize);
     resize();
 
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function smoothstep(edge0, edge1, value) {
+      const x = clamp((value - edge0) / (edge1 - edge0), 0, 1);
+      return x * x * (3 - 2 * x);
+    }
+
+    function wallMask(nx, ny) {
+      const top = 0.19 + Math.pow(Math.abs(nx - 0.5) * 1.7, 2) * 0.08;
+      const bottom = 0.83 - Math.pow(Math.abs(nx - 0.5) * 1.6, 2) * 0.04;
+      const side = smoothstep(0.04, 0.13, nx) * (1 - smoothstep(0.89, 0.98, nx));
+      const vertical = smoothstep(top, top + 0.09, ny) * (1 - smoothstep(bottom - 0.08, bottom, ny));
+      return clamp(side * vertical, 0, 1);
+    }
+
+    function updatePointerStyles() {
+      const dx = pointer.tx - 0.5;
+      const dy = pointer.ty - 0.5;
+      const centerPull = Math.max(0, 1 - Math.hypot(dx, dy) * 1.7);
+      const mask = wallMask(pointer.tx, pointer.ty);
+
+      root.style.setProperty("--mx", (pointer.tx * 100).toFixed(2) + "%");
+      root.style.setProperty("--my", (pointer.ty * 100).toFixed(2) + "%");
+      root.style.setProperty("--lens-x", (pointer.tx * width).toFixed(2) + "px");
+      root.style.setProperty("--lens-y", (pointer.ty * height).toFixed(2) + "px");
+      root.style.setProperty("--lens-opacity", (mask * 0.74).toFixed(3));
+      root.style.setProperty("--lens-scale", (0.82 + mask * 0.2).toFixed(3));
+      root.style.setProperty("--title-x", (dx * 12).toFixed(2) + "px");
+      root.style.setProperty("--title-y", (dy * 8).toFixed(2) + "px");
+      root.style.setProperty("--title-glow", (0.28 + centerPull * 0.32).toFixed(3));
+      root.style.setProperty("--title-glow-size", (18 + centerPull * 28).toFixed(2) + "px");
+      root.style.setProperty("--title-spacing", (Math.max(0, 1 - Math.hypot(dx, dy) * 2) * 0.8).toFixed(2) + "px");
+      root.style.setProperty("--title-shadow-x", (dx * -5.6).toFixed(2) + "px");
+      root.style.setProperty("--title-shadow-y", (dy * -3.6).toFixed(2) + "px");
+    }
+
     window.addEventListener("pointermove", (event) => {
       pointer.tx = event.clientX / Math.max(1, width);
       pointer.ty = event.clientY / Math.max(1, height);
-      root.style.setProperty("--mx", (pointer.tx * 100).toFixed(2) + "%");
-      root.style.setProperty("--my", (pointer.ty * 100).toFixed(2) + "%");
-      root.style.setProperty("--photo-x", ((pointer.tx - 0.5) * -14).toFixed(2) + "px");
-      root.style.setProperty("--photo-y", ((pointer.ty - 0.5) * -9).toFixed(2) + "px");
-      root.style.setProperty("--title-x", ((pointer.tx - 0.5) * 18).toFixed(2) + "px");
-      root.style.setProperty("--title-y", ((pointer.ty - 0.5) * 12).toFixed(2) + "px");
-      root.style.setProperty("--title-glow", (0.28 + Math.max(0, 1 - Math.hypot(pointer.tx - 0.5, pointer.ty - 0.5) * 1.7) * 0.32).toFixed(3));
-      root.style.setProperty("--title-glow-size", (18 + Math.max(0, 1 - Math.hypot(pointer.tx - 0.5, pointer.ty - 0.5) * 1.7) * 28).toFixed(2) + "px");
-      root.style.setProperty("--title-spacing", (Math.max(0, 1 - Math.hypot(pointer.tx - 0.5, pointer.ty - 0.5) * 2) * 0.8).toFixed(2) + "px");
-      root.style.setProperty("--title-shadow-x", ((pointer.tx - 0.5) * -7.2).toFixed(2) + "px");
-      root.style.setProperty("--title-shadow-y", ((pointer.ty - 0.5) * -4.2).toFixed(2) + "px");
+      updatePointerStyles();
     }, { passive: true });
 
-    const glyphs = ["·", "›", "•", "○", "—"];
-    const streams = Array.from({ length: 22 }, () => ({
-      x: Math.random(),
-      y: 0.14 + Math.random() * 0.7,
-      speed: 0.02 + Math.random() * 0.03,
-      amp: 18 + Math.random() * 54,
-      length: 9 + Math.floor(Math.random() * 14),
-      phase: Math.random() * Math.PI * 2,
-      glyph: glyphs[Math.floor(Math.random() * glyphs.length)]
-    }));
+    const glyphs = [">", "›", "o", "·", "-", "•"];
+    const glyphField = [];
+    for (let row = 0; row < 30; row++) {
+      for (let col = 0; col < 86; col++) {
+        const x = 0.035 + col * 0.0111;
+        const y = 0.13 + row * 0.0252;
+        const mask = wallMask(x, y);
+        if (mask > 0.08 && Math.random() > 0.08) {
+          glyphField.push({
+            x,
+            y,
+            mask,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.45 + Math.random() * 0.8,
+            glyph: glyphs[(col + row * 3) % glyphs.length]
+          });
+        }
+      }
+    }
 
-    const nodes = Array.from({ length: 220 }, () => ({
-      x: 0.08 + Math.random() * 0.84,
-      y: 0.12 + Math.random() * 0.7,
-      r: Math.random() * 1.2 + 0.35,
-      phase: Math.random() * Math.PI * 2,
-      drift: Math.random() * 0.7 + 0.3
-    }));
+    const ripples = [];
+
+    window.addEventListener("pointerdown", (event) => {
+      const x = event.clientX / Math.max(1, width);
+      const y = event.clientY / Math.max(1, height);
+      const mask = wallMask(x, y);
+      if (mask > 0.08) {
+        ripples.push({
+          x,
+          y,
+          start: performance.now(),
+          strength: mask
+        });
+        if (ripples.length > 5) {
+          ripples.shift();
+        }
+      }
+    }, { passive: true });
 
     function drawBlob(x, y, r, colorA, colorB) {
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
@@ -271,53 +343,98 @@
       ctx.clearRect(0, 0, width, height);
 
       ctx.globalCompositeOperation = "screen";
-      drawBlob(width * (0.18 + pointer.x * 0.07), height * (0.54 + Math.sin(t * 0.38) * 0.025), Math.max(width, height) * 0.42,
-        "rgba(156, 90, 255, .22)", "rgba(156, 90, 255, 0)");
-      drawBlob(width * (0.78 - pointer.x * 0.05), height * (0.34 + pointer.y * 0.05), Math.max(width, height) * 0.35,
-        "rgba(78, 132, 255, .18)", "rgba(78, 132, 255, 0)");
-      drawBlob(width * pointer.x, height * pointer.y, Math.max(width, height) * 0.18,
-        "rgba(215, 232, 255, .14)", "rgba(215, 232, 255, 0)");
+      drawBlob(width * 0.24, height * (0.58 + Math.sin(t * 0.34) * 0.02), Math.max(width, height) * 0.3,
+        "rgba(156, 90, 255, .12)", "rgba(156, 90, 255, 0)");
+      drawBlob(width * 0.72, height * (0.42 + Math.cos(t * 0.29) * 0.02), Math.max(width, height) * 0.25,
+        "rgba(78, 132, 255, .10)", "rgba(78, 132, 255, 0)");
+      drawBlob(width * pointer.x, height * pointer.y, Math.max(width, height) * 0.13,
+        "rgba(215, 232, 255, .12)", "rgba(215, 232, 255, 0)");
 
       ctx.globalCompositeOperation = "source-over";
-      for (const n of nodes) {
-        const dx = (pointer.x - 0.5) * 20 * n.drift;
-        const dy = (pointer.y - 0.5) * 12 * n.drift;
-        const pulse = 0.32 + 0.68 * Math.max(0, Math.sin(t * 0.9 + n.phase));
-        const x = n.x * width + Math.sin(t * 0.24 + n.phase) * 6 + dx;
-        const y = n.y * height + Math.cos(t * 0.22 + n.phase) * 4 + dy;
-
-        ctx.fillStyle = `rgba(220,235,255,${0.10 + pulse * 0.24})`;
-        ctx.beginPath();
-        ctx.arc(x, y, n.r * pulse, 0, Math.PI * 2);
-        ctx.fill();
-      }
 
       ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      for (const s of streams) {
-        s.x = (s.x + s.speed * 0.003) % 1.18;
-        for (let i = 0; i < s.length; i++) {
-          const p = i / Math.max(1, s.length - 1);
-          const x = ((s.x + p * 0.036 + t * s.speed) % 1.18 - 0.09) * width;
-          const y = s.y * height + Math.sin(t * 0.8 + p * 5.5 + s.phase) * s.amp;
-          const dist = Math.hypot(x - pointer.x * width, y - pointer.y * height);
-          const influence = Math.max(0, 1 - dist / 260);
-          const alpha = 0.10 + 0.30 * (1 - p) + influence * 0.35;
-
-          ctx.fillStyle = `rgba(235,242,255,${alpha})`;
-          ctx.fillText(s.glyph, x + influence * 18, y - influence * 10);
+      const activeRipples = [];
+      for (const ripple of ripples) {
+        const age = (ms - ripple.start) / 900;
+        if (age < 1) {
+          activeRipples.push(ripple);
         }
       }
+      ripples.length = 0;
+      ripples.push(...activeRipples);
 
-      const sweepY = ((t * 0.055) % 1.05) * height;
-      const grad = ctx.createLinearGradient(0, sweepY - 38, 0, sweepY + 38);
-      grad.addColorStop(0, "rgba(190,230,255,0)");
-      grad.addColorStop(0.5, "rgba(190,230,255,.10)");
-      grad.addColorStop(1, "rgba(190,230,255,0)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, sweepY - 38, width, 76);
+      for (const g of glyphField) {
+        const drift = (t * 0.018 * g.speed + g.phase) % 1;
+        const nx = 0.035 + ((g.x - 0.035 + drift) % 0.94);
+        const ny = g.y + Math.sin(t * 0.5 + g.phase) * 0.004;
+        const mask = wallMask(nx, ny);
+        if (mask < 0.06) {
+          continue;
+        }
+
+        const baseX = nx * width;
+        const baseY = ny * height;
+        const dx = baseX - pointer.x * width;
+        const dy = baseY - pointer.y * height;
+        const dist = Math.hypot(dx, dy);
+        const influence = Math.max(0, 1 - dist / 210);
+        let rippleBoost = 0;
+
+        for (const ripple of ripples) {
+          const age = (ms - ripple.start) / 900;
+          const ring = age * 250;
+          const rd = Math.hypot(baseX - ripple.x * width, baseY - ripple.y * height);
+          rippleBoost += Math.max(0, 1 - Math.abs(rd - ring) / 34) * (1 - age) * ripple.strength;
+        }
+
+        const push = influence * 18 + rippleBoost * 16;
+        const safeDist = Math.max(1, dist);
+        const x = baseX + (dx / safeDist) * push;
+        const y = baseY + (dy / safeDist) * push + Math.sin(t * 1.8 + g.phase) * influence * 3;
+        const pulse = 0.5 + 0.5 * Math.sin(t * 1.4 + g.phase);
+        const alpha = Math.min(0.82, 0.06 + mask * 0.18 + influence * 0.48 + rippleBoost * 0.42 + pulse * 0.04);
+
+        ctx.fillStyle = `rgba(238,246,255,${alpha})`;
+        ctx.fillText(g.glyph, x, y);
+      }
+
+      ctx.lineWidth = 1;
+      for (let row = 0; row < 11; row++) {
+        const ny = 0.28 + row * 0.042;
+        const phase = t * 0.42 + row * 0.8;
+        ctx.beginPath();
+        for (let i = 0; i < 66; i++) {
+          const nx = 0.08 + i * 0.013;
+          const y = (ny + Math.sin(i * 0.22 + phase) * 0.006 + Math.sin(nx * Math.PI) * 0.025) * height;
+          const x = nx * width;
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.strokeStyle = `rgba(212,235,255,${0.018 + row * 0.003})`;
+        ctx.stroke();
+      }
+
+      for (const ripple of ripples) {
+        const age = (ms - ripple.start) / 900;
+        const radius = age * 250;
+        const alpha = (1 - age) * ripple.strength;
+        ctx.strokeStyle = `rgba(230,244,255,${alpha * 0.42})`;
+        ctx.lineWidth = 1 + alpha * 2;
+        ctx.beginPath();
+        ctx.arc(ripple.x * width, ripple.y * height, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(176,130,255,${alpha * 0.26})`;
+        ctx.beginPath();
+        ctx.arc(ripple.x * width, ripple.y * height, radius * 0.62, 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       if (!prefersReducedMotion) {
         requestAnimationFrame(frame);
