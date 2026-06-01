@@ -9,6 +9,7 @@ This repository is public only so GitHub Pages can serve the iframe content over
 - `index.html` - interactive canvas banner page
 - `vislab-hero-banner.jpg` - background image used by the page
 - `vislab-particles.js` - sampled particle data for the current particle banner
+- `thin/` - thin/wide particle banner using `vislab-hero-banner_thin.jpg`
 - `classic/` - previous interactive banner version kept for iframe switching
 - `.nojekyll` - keeps GitHub Pages from processing the folder with Jekyll
 
@@ -35,6 +36,20 @@ Current particle banner:
   scrolling="no"
   title="VisLab interactive digital twin banner"
   style="display:block;width:100%;height:420px;border:0;overflow:hidden;">
+</iframe>
+```
+
+Thin particle banner:
+
+```html
+<iframe
+  src="https://uq-vislab.github.io/Web/thin/"
+  width="100%"
+  height="360"
+  frameborder="0"
+  scrolling="no"
+  title="VisLab thin interactive particle banner"
+  style="display:block;width:100%;height:360px;border:0;overflow:hidden;">
 </iframe>
 ```
 
