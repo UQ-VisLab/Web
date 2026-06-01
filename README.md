@@ -8,6 +8,8 @@ This repository is public only so GitHub Pages can serve the iframe content over
 
 - `index.html` - interactive canvas banner page
 - `vislab-hero-banner.jpg` - background image used by the page
+- `vislab-particles.js` - sampled particle data for the current particle banner
+- `classic/` - previous interactive banner version kept for iframe switching
 - `.nojekyll` - keeps GitHub Pages from processing the folder with Jekyll
 
 ## Rights and usage
@@ -22,16 +24,30 @@ Do not add passwords, API keys, unpublished research material, student informati
 
 ## Drupal iframe snippet
 
-Replace `PUBLIC_HTTPS_URL_HERE` with the published URL of this folder.
+Current particle banner:
 
 ```html
 <iframe
-  src="PUBLIC_HTTPS_URL_HERE/"
+  src="https://uq-vislab.github.io/Web/"
   width="100%"
   height="420"
   frameborder="0"
   scrolling="no"
   title="VisLab interactive digital twin banner"
+  style="display:block;width:100%;height:420px;border:0;overflow:hidden;">
+</iframe>
+```
+
+Previous/classic banner:
+
+```html
+<iframe
+  src="https://uq-vislab.github.io/Web/classic/"
+  width="100%"
+  height="420"
+  frameborder="0"
+  scrolling="no"
+  title="VisLab classic interactive banner"
   style="display:block;width:100%;height:420px;border:0;overflow:hidden;">
 </iframe>
 ```

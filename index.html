@@ -7,15 +7,8 @@
   <title>VisLab Interactive Banner</title>
   <style>
     :root {
-      --mx: 55%;
-      --my: 42%;
-      --title-x: 0px;
-      --title-y: 0px;
-      --title-glow: .34;
-      --title-glow-size: 28px;
-      --title-spacing: 0px;
-      --title-shadow-x: 0px;
-      --title-shadow-y: 0px;
+      --title-glow: .28;
+      --title-glow-size: 22px;
     }
 
     * {
@@ -47,7 +40,7 @@
 
     .photo-layer {
       position: absolute;
-      inset: -4%;
+      inset: 0;
       z-index: 0;
       background-image:
         linear-gradient(110deg, rgba(25, 7, 50, .48), rgba(30, 30, 120, .14), rgba(105, 48, 190, .36)),
@@ -55,7 +48,7 @@
       background-size: cover;
       background-position: center;
       filter: saturate(1.12) contrast(1.06);
-      transform: scale(1.025);
+      transform: none;
     }
 
     .photo-layer::after {
@@ -63,7 +56,6 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at var(--mx) var(--my), rgba(156, 190, 255, .22), transparent 25%),
         radial-gradient(circle at 22% 54%, rgba(164, 80, 255, .34), transparent 31%),
         radial-gradient(circle at 76% 38%, rgba(68, 102, 255, .28), transparent 32%),
         linear-gradient(to bottom, rgba(255, 255, 255, .02), rgba(8, 0, 18, .22) 72%, rgba(8, 0, 18, .46));
@@ -75,10 +67,12 @@
     #field {
       position: absolute;
       inset: 0;
-      z-index: 1;
+      z-index: 4;
       width: 100%;
       height: 100%;
       pointer-events: none;
+      opacity: .9;
+      filter: blur(.12px);
     }
 
     .grain {
@@ -110,23 +104,21 @@
       top: 50%;
       z-index: 5;
       margin: 0;
-      color: rgba(255, 255, 255, .94);
-      font-size: clamp(44px, 5.8vw, 86px);
-      font-weight: 300;
-      line-height: 1;
-      letter-spacing: var(--title-spacing);
+      color: rgba(255, 255, 255, .96);
+      font-family: Roboto, Arial, Helvetica, sans-serif;
+      font-size: clamp(42px, 5vw, 76px);
+      font-weight: 400;
+      line-height: 1.08;
+      letter-spacing: 0;
       text-align: center;
-      text-rendering: geometricPrecision;
       text-shadow:
         0 1px 1px rgba(0, 0, 0, .32),
-        0 14px 42px rgba(0, 0, 0, .28),
+        0 10px 32px rgba(0, 0, 0, .22),
         0 0 var(--title-glow-size) rgba(204, 226, 255, var(--title-glow));
-      transform:
-        translate3d(-50%, -50%, 0)
-        translate3d(var(--title-x), var(--title-y), 0);
+      transform: translate3d(-50%, -50%, 0);
       user-select: none;
       pointer-events: none;
-      will-change: transform, letter-spacing, text-shadow;
+      will-change: text-shadow;
     }
 
     .brand-title::before {
@@ -136,32 +128,25 @@
       z-index: -1;
       color: rgba(165, 105, 255, .24);
       filter: blur(16px);
-      transform: translate3d(var(--title-shadow-x), var(--title-shadow-y), 0);
     }
 
-    .brand-title span {
-      display: inline-block;
-      animation: letter-drift 6.8s ease-in-out infinite;
-      animation-delay: var(--delay);
-    }
-
-    @keyframes letter-drift {
-      0%,
-      100% {
-        transform: translate3d(0, 0, 0);
-      }
-      50% {
-        transform: translate3d(0, -3px, 0);
-      }
+    .debug-status {
+      position: absolute;
+      left: 12px;
+      bottom: 10px;
+      z-index: 8;
+      display: none;
+      padding: 6px 8px;
+      border-radius: 4px;
+      background: rgba(5, 0, 14, .62);
+      color: rgba(238, 246, 255, .9);
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      pointer-events: none;
     }
 
     @media (prefers-reduced-motion: reduce) {
       .photo-layer {
-        transform: scale(1.025);
-      }
-
-      .brand-title span {
-        animation: none;
+        transform: none;
       }
 
     }
@@ -180,16 +165,23 @@
     <div class="grain"></div>
     <div class="edge-shade"></div>
     <h1 class="brand-title" data-title="VisLab" aria-label="VisLab">
-      <span style="--delay: 0ms">V</span><span style="--delay: -720ms">i</span><span style="--delay: -1440ms">s</span><span style="--delay: -2160ms">L</span><span style="--delay: -2880ms">a</span><span style="--delay: -3600ms">b</span>
+      VisLab
     </h1>
+    <div class="debug-status" id="debugStatus"></div>
   </main>
 
+  <script>
+    window.VISLAB_PARTICLE_SEEDS = window.VISLAB_PARTICLE_SEEDS || [];
+  </script>
+  <script src="vislab-particles.js"></script>
   <script>
     const canvas = document.getElementById("field");
     const ctx = canvas.getContext("2d", { alpha: true });
     const root = document.documentElement;
+    const debugStatus = document.getElementById("debugStatus");
+    const debugMode = new URLSearchParams(window.location.search).has("debug");
 
-    const pointer = { x: 0.58, y: 0.42, tx: 0.58, ty: 0.42 };
+    const pointer = { x: 0.58, y: 0.42, tx: 0.58, ty: 0.42, seen: 0, clicks: 0 };
     const DPR = Math.min(window.devicePixelRatio || 1, 2);
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -208,6 +200,9 @@
 
     window.addEventListener("resize", resize);
     resize();
+    if (debugMode) {
+      debugStatus.style.display = "block";
+    }
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
@@ -218,56 +213,290 @@
       return x * x * (3 - 2 * x);
     }
 
+    function screenTop(nx) {
+      const x = clamp(nx, 0, 1);
+      return 0.205 + Math.sin(Math.PI * x) * 0.125 - x * 0.045;
+    }
+
+    function screenBottom(nx) {
+      const x = clamp(nx, 0, 1);
+      return 0.955 - Math.sin(Math.PI * x) * 0.17 + (x - 0.5) * 0.03;
+    }
+
     function wallMask(nx, ny) {
-      const top = 0.19 + Math.pow(Math.abs(nx - 0.5) * 1.7, 2) * 0.08;
-      const bottom = 0.83 - Math.pow(Math.abs(nx - 0.5) * 1.6, 2) * 0.04;
-      const side = smoothstep(0.04, 0.13, nx) * (1 - smoothstep(0.89, 0.98, nx));
-      const vertical = smoothstep(top, top + 0.09, ny) * (1 - smoothstep(bottom - 0.08, bottom, ny));
+      const top = screenTop(nx);
+      const bottom = screenBottom(nx);
+      const side = smoothstep(0.006, 0.055, nx) * (1 - smoothstep(0.962, 0.998, nx));
+      const vertical = smoothstep(top, top + 0.085, ny) * (1 - smoothstep(bottom - 0.07, bottom, ny));
       return clamp(side * vertical, 0, 1);
     }
 
-    function updatePointerStyles() {
-      const dx = pointer.tx - 0.5;
-      const dy = pointer.ty - 0.5;
-      const centerPull = Math.max(0, 1 - Math.hypot(dx, dy) * 1.7);
-      const mask = wallMask(pointer.tx, pointer.ty);
+    function distToSegment(px, py, ax, ay, bx, by) {
+      const vx = bx - ax;
+      const vy = by - ay;
+      const wx = px - ax;
+      const wy = py - ay;
+      const t = clamp((wx * vx + wy * vy) / Math.max(0.0001, vx * vx + vy * vy), 0, 1);
+      const dx = px - (ax + vx * t);
+      const dy = py - (ay + vy * t);
+      return Math.hypot(dx, dy);
+    }
 
-      root.style.setProperty("--mx", (pointer.tx * 100).toFixed(2) + "%");
-      root.style.setProperty("--my", (pointer.ty * 100).toFixed(2) + "%");
-      root.style.setProperty("--title-x", (dx * 12).toFixed(2) + "px");
-      root.style.setProperty("--title-y", (dy * 8).toFixed(2) + "px");
-      root.style.setProperty("--title-glow", (0.28 + centerPull * 0.32).toFixed(3));
-      root.style.setProperty("--title-glow-size", (18 + centerPull * 28).toFixed(2) + "px");
-      root.style.setProperty("--title-spacing", (Math.max(0, 1 - Math.hypot(dx, dy) * 2) * 0.8).toFixed(2) + "px");
-      root.style.setProperty("--title-shadow-x", (dx * -5.6).toFixed(2) + "px");
-      root.style.setProperty("--title-shadow-y", (dy * -3.6).toFixed(2) + "px");
+    function ellipseBand(nx, ny, cx, cy, rx, ry, inner) {
+      const d = Math.hypot((nx - cx) / rx, (ny - cy) / ry);
+      return smoothstep(1.12, 0.9, d) * (inner ? smoothstep(inner, inner + 0.14, d) : 1);
+    }
+
+    function letterMask(nx, ny) {
+      let m = 0;
+
+      const vLeft = smoothstep(0.055, 0.018, distToSegment(nx, ny, 0.035, 0.44, 0.125, 0.9));
+      const vRight = smoothstep(0.06, 0.02, distToSegment(nx, ny, 0.245, 0.42, 0.14, 0.9));
+      m = Math.max(m, vLeft, vRight);
+
+      const iStem = smoothstep(0.35, 0.39, ny) * (1 - smoothstep(0.9, 0.94, ny)) *
+        smoothstep(0.255, 0.285, nx) * (1 - smoothstep(0.335, 0.365, nx));
+      const iDot = ellipseBand(nx, ny, 0.295, 0.32, 0.04, 0.055, 0);
+      m = Math.max(m, iStem, iDot);
+
+      const sTop = ellipseBand(nx, ny, 0.43, 0.5, 0.135, 0.13, 0.52);
+      const sMid = ellipseBand(nx, ny, 0.42, 0.66, 0.13, 0.12, 0.58);
+      const sBottom = ellipseBand(nx, ny, 0.415, 0.81, 0.14, 0.13, 0.54);
+      const sCutTopRight = nx > 0.445 && ny > 0.55 && ny < 0.66 ? 0.45 : 0;
+      const sCutBottomLeft = nx < 0.39 && ny > 0.68 && ny < 0.78 ? 0.35 : 0;
+      m = Math.max(m, Math.max(sTop, sMid, sBottom) - Math.max(sCutTopRight, sCutBottomLeft));
+
+      const lStem = smoothstep(0.35, 0.39, ny) * (1 - smoothstep(0.88, 0.93, ny)) *
+        smoothstep(0.505, 0.535, nx) * (1 - smoothstep(0.57, 0.6, nx));
+      const lBase = smoothstep(0.82, 0.85, ny) * (1 - smoothstep(0.91, 0.95, ny)) *
+        smoothstep(0.515, 0.55, nx) * (1 - smoothstep(0.655, 0.69, nx));
+      m = Math.max(m, lStem, lBase);
+
+      const aOuter = ellipseBand(nx, ny, 0.63, 0.71, 0.12, 0.17, 0.46);
+      const aStem = smoothstep(0.61, 0.64, nx) * (1 - smoothstep(0.69, 0.72, nx)) *
+        smoothstep(0.56, 0.6, ny) * (1 - smoothstep(0.9, 0.94, ny));
+      m = Math.max(m, aOuter, aStem);
+
+      const bStem = smoothstep(0.66, 0.69, nx) * (1 - smoothstep(0.735, 0.765, nx)) *
+        smoothstep(0.38, 0.42, ny) * (1 - smoothstep(0.9, 0.94, ny));
+      const bBowl = ellipseBand(nx, ny, 0.765, 0.69, 0.13, 0.2, 0.48);
+      m = Math.max(m, bStem, bBowl);
+
+      return clamp(m, 0, 1);
+    }
+
+    function updatePointerStyles() {
+      const mask = wallMask(pointer.tx, pointer.ty);
     }
 
     window.addEventListener("pointermove", (event) => {
       pointer.tx = event.clientX / Math.max(1, width);
       pointer.ty = event.clientY / Math.max(1, height);
+      pointer.seen++;
       updatePointerStyles();
     }, { passive: true });
 
-    const glyphs = [">", "›", "o", "·", "-", "•"];
-    const glyphField = [];
-    for (let row = 0; row < 30; row++) {
-      for (let col = 0; col < 86; col++) {
-        const x = 0.035 + col * 0.0111;
-        const y = 0.13 + row * 0.0252;
-        const mask = wallMask(x, y);
-        if (mask > 0.08 && Math.random() > 0.08) {
-          glyphField.push({
-            x,
-            y,
-            mask,
+    window.addEventListener("mousemove", (event) => {
+      pointer.tx = event.clientX / Math.max(1, width);
+      pointer.ty = event.clientY / Math.max(1, height);
+      pointer.seen++;
+      updatePointerStyles();
+    }, { passive: true });
+
+    const particles = [];
+    const sourceImage = new Image();
+    sourceImage.src = "vislab-hero-banner.jpg";
+
+    function viewportToImage(nx, ny) {
+      const imgW = sourceImage.naturalWidth || 1;
+      const imgH = sourceImage.naturalHeight || 1;
+      const scale = Math.max(width / imgW, height / imgH);
+      const drawnW = imgW * scale;
+      const drawnH = imgH * scale;
+      const offsetX = (width - drawnW) * 0.5;
+      const offsetY = (height - drawnH) * 0.5;
+      return {
+        x: Math.floor((nx * width - offsetX) / scale),
+        y: Math.floor((ny * height - offsetY) / scale)
+      };
+    }
+
+    function imageToViewport(nx, ny) {
+      const imgW = sourceImage.naturalWidth || 2048;
+      const imgH = sourceImage.naturalHeight || 735;
+      const scale = Math.max(width / imgW, height / imgH);
+      const drawnW = imgW * scale;
+      const drawnH = imgH * scale;
+      const offsetX = (width - drawnW) * 0.5;
+      const offsetY = (height - drawnH) * 0.5;
+
+      return {
+        x: (offsetX + nx * drawnW) / Math.max(1, width),
+        y: (offsetY + ny * drawnH) / Math.max(1, height)
+      };
+    }
+
+    function buildImageParticles() {
+      if (Array.isArray(window.VISLAB_PARTICLE_SEEDS) && window.VISLAB_PARTICLE_SEEDS.length) {
+        buildSeedParticles();
+        return;
+      }
+
+      if (!sourceImage.complete || !sourceImage.naturalWidth || !width || !height) {
+        buildFallbackParticles();
+        return;
+      }
+
+      let sampleCtx;
+      let sample;
+      try {
+        sample = document.createElement("canvas");
+        sampleCtx = sample.getContext("2d", { willReadFrequently: true });
+        sample.width = sourceImage.naturalWidth;
+        sample.height = sourceImage.naturalHeight;
+        sampleCtx.drawImage(sourceImage, 0, 0);
+        sampleCtx.getImageData(0, 0, 1, 1);
+      } catch (error) {
+        buildFallbackParticles();
+        window.vislabParticleError = String(error && error.message ? error.message : error);
+        return;
+      }
+
+      const next = [];
+      const stepX = width < 820 ? 0.010 : 0.0068;
+      const stepY = width < 820 ? 0.014 : 0.0092;
+
+      for (let ny = 0.295; ny < 0.935; ny += stepY) {
+        for (let nx = 0.012; nx < 0.88; nx += stepX) {
+          const mask = wallMask(nx, ny);
+          const letter = letterMask(nx, ny);
+          if (mask < 0.18 || letter < 0.2) {
+            continue;
+          }
+
+          const pt = viewportToImage(nx, ny);
+          if (pt.x < 0 || pt.y < 0 || pt.x >= sample.width || pt.y >= sample.height) {
+            continue;
+          }
+
+          const px = sampleCtx.getImageData(pt.x, pt.y, 1, 1).data;
+          const r = px[0];
+          const g = px[1];
+          const b = px[2];
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const brightness = (r + g + b) / 765;
+          const saturation = (max - min) / Math.max(1, max);
+          const purpleBackdrop = r > 100 && b > 110 && g < 82 && Math.abs(r - b) < 95;
+          const material = brightness > 0.2 || saturation > 0.14 || !purpleBackdrop;
+          const textureGate = Math.sin(nx * 210 + ny * 140) + Math.cos(nx * 75 - ny * 165);
+
+          if (material && textureGate > -1.4) {
+            next.push({
+              tx: nx,
+              ty: ny,
+              sx: nx + (Math.random() - 0.5) * 0.72,
+              sy: ny + (Math.random() - 0.5) * 0.46,
+              r,
+              g,
+              b,
+              z: Math.random(),
+              phase: Math.random() * Math.PI * 2,
+              size: 1.05 + Math.random() * 1.8,
+              mask: mask * letter
+            });
+          }
+        }
+      }
+
+      particles.length = 0;
+      particles.push(...next.slice(0, width < 820 ? 1800 : 4200));
+      if (particles.length < 120) {
+        buildFallbackParticles();
+      }
+    }
+
+    function buildSeedParticles() {
+      const seeds = window.VISLAB_PARTICLE_SEEDS || [];
+      const cap = width < 820 ? Math.min(14000, seeds.length) : Math.min(30200, seeds.length);
+      const next = [];
+      const step = Math.max(1, Math.floor(seeds.length / cap));
+
+      for (let i = 0; i < seeds.length && next.length < cap; i += step) {
+        const seed = seeds[i];
+        const nx = seed[0];
+        const ny = seed[1];
+        const target = imageToViewport(nx, ny);
+        const letter = letterMask(target.x, target.y);
+        const mask = Math.max(0.48, wallMask(target.x, target.y) * Math.max(0.58, letter));
+
+        next.push({
+          tx: nx,
+          ty: ny,
+          sx: nx + (Math.random() - 0.5) * 0.15,
+          sy: ny + (Math.random() - 0.5) * 0.09,
+          r: seed[2],
+          g: seed[3],
+          b: seed[4],
+          z: seed[5],
+          phase: Math.random() * Math.PI * 2,
+          size: seed[6],
+          mask
+        });
+      }
+
+      particles.length = 0;
+      particles.push(...next);
+    }
+
+    function buildFallbackParticles() {
+      const next = [];
+      const stepX = width < 820 ? 0.009 : 0.0062;
+      const stepY = width < 820 ? 0.013 : 0.0086;
+
+      for (let ny = 0.295; ny < 0.935; ny += stepY) {
+        for (let nx = 0.012; nx < 0.88; nx += stepX) {
+          const mask = wallMask(nx, ny);
+          const letter = letterMask(nx, ny);
+          const textureGate = Math.sin(nx * 230 + ny * 90) + Math.cos(nx * 120 - ny * 150);
+          if (mask < 0.18 || letter < 0.22 || textureGate < -1.35) {
+            continue;
+          }
+
+          const warm = smoothstep(0.52, 0.68, nx) * smoothstep(0.56, 0.72, ny);
+          const cool = smoothstep(0.28, 0.46, nx) * (1 - smoothstep(0.72, 0.9, nx));
+          const r = Math.round(170 + warm * 74 + cool * 18 + Math.random() * 18);
+          const g = Math.round(95 + warm * 48 + cool * 62 + Math.random() * 18);
+          const b = Math.round(205 + cool * 42 + Math.random() * 22);
+
+          next.push({
+            tx: nx,
+            ty: ny,
+            sx: nx + (Math.random() - 0.5) * 0.18,
+            sy: ny + (Math.random() - 0.5) * 0.13,
+            r,
+            g,
+            b,
+            z: Math.random(),
             phase: Math.random() * Math.PI * 2,
-            speed: 0.45 + Math.random() * 0.8,
-            glyph: glyphs[(col + row * 3) % glyphs.length]
+            size: 0.75 + Math.random() * 1.2,
+            mask: mask * letter
           });
         }
       }
+
+      particles.length = 0;
+      particles.push(...next.slice(0, width < 820 ? 2000 : 5000));
     }
+
+    sourceImage.addEventListener("load", buildImageParticles);
+    if (sourceImage.complete) {
+      buildImageParticles();
+    }
+    window.addEventListener("resize", () => {
+      window.clearTimeout(window.__vislabParticleResize);
+      window.__vislabParticleResize = window.setTimeout(buildImageParticles, 120);
+    });
 
     const bursts = [];
 
@@ -276,6 +505,7 @@
       const y = event.clientY / Math.max(1, height);
       const mask = wallMask(x, y);
       if (mask > 0.08) {
+        pointer.clicks++;
         bursts.push({
           x,
           y,
@@ -298,31 +528,45 @@
       ctx.fill();
     }
 
+    function drawParticle(x, y, radius, alpha, color, focus) {
+      const glow = focus > 0.18;
+      if (glow) {
+        const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * (2.8 + focus * 1.2));
+        halo.addColorStop(0, `rgba(${color.r},${color.g},${color.b},${alpha * 0.12})`);
+        halo.addColorStop(1, `rgba(${color.r},${color.g},${color.b},0)`);
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(x, y, radius * (2.8 + focus * 1.2), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},${alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+    }
+
     function frame(ms) {
       const t = ms * 0.001;
+      const breath = 0.42 + 0.58 * (0.5 + 0.5 * Math.sin(t * 1.16));
 
-      pointer.x += (pointer.tx - pointer.x) * 0.045;
-      pointer.y += (pointer.ty - pointer.y) * 0.045;
+      pointer.x += (pointer.tx - pointer.x) * 0.42;
+      pointer.y += (pointer.ty - pointer.y) * 0.42;
 
       ctx.clearRect(0, 0, width, height);
 
       ctx.globalCompositeOperation = "screen";
       drawBlob(width * 0.24, height * (0.58 + Math.sin(t * 0.34) * 0.02), Math.max(width, height) * 0.3,
-        "rgba(156, 90, 255, .12)", "rgba(156, 90, 255, 0)");
+        "rgba(156, 90, 255, .045)", "rgba(156, 90, 255, 0)");
       drawBlob(width * 0.72, height * (0.42 + Math.cos(t * 0.29) * 0.02), Math.max(width, height) * 0.25,
-        "rgba(78, 132, 255, .10)", "rgba(78, 132, 255, 0)");
-      drawBlob(width * pointer.x, height * pointer.y, Math.max(width, height) * 0.13,
-        "rgba(215, 232, 255, .12)", "rgba(215, 232, 255, 0)");
+        "rgba(78, 132, 255, .045)", "rgba(78, 132, 255, 0)");
 
       ctx.globalCompositeOperation = "source-over";
 
-      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
       const activeBursts = [];
       for (const burst of bursts) {
-        const age = (ms - burst.start) / 760;
+        const age = (ms - burst.start) / 980;
         if (age < 1) {
           activeBursts.push(burst);
         }
@@ -330,12 +574,26 @@
       bursts.length = 0;
       bursts.push(...activeBursts);
 
-      for (const g of glyphField) {
-        const drift = (t * 0.018 * g.speed + g.phase) % 1;
-        const nx = 0.035 + ((g.x - 0.035 + drift) % 0.94);
-        const ny = g.y + Math.sin(t * 0.5 + g.phase) * 0.004;
+      if (!particles.length) {
+        buildImageParticles();
+      }
+      if (debugMode) {
+        debugStatus.textContent = `particles=${particles.length} seeds=${(window.VISLAB_PARTICLE_SEEDS || []).length} mouse=${pointer.seen} clicks=${pointer.clicks} image=${sourceImage.complete ? sourceImage.naturalWidth + "x" + sourceImage.naturalHeight : "loading"}${window.vislabParticleError ? " fallback" : ""}`;
+      }
+
+      for (const p of particles) {
+        const depth = 0.45 + p.z * 0.9;
+        const gather = 0.93 + Math.sin(t * 0.92 + p.phase) * 0.035;
+        const organicScatter = (1 - gather) * (0.3 + p.z * 0.34);
+        const target = imageToViewport(p.tx, p.ty);
+        const scatter = imageToViewport(p.sx, p.sy);
+        let nx = target.x + (scatter.x - target.x) * organicScatter;
+        let ny = target.y + (scatter.y - target.y) * organicScatter;
+        nx += Math.sin(t * 0.9 + p.phase + p.ty * 13) * 0.0026 * depth;
+        ny += Math.cos(t * 0.74 + p.phase + p.tx * 11) * 0.0024 * depth;
+
         const mask = wallMask(nx, ny);
-        if (mask < 0.06) {
+        if (mask < 0.14) {
           continue;
         }
 
@@ -343,65 +601,53 @@
         const baseY = ny * height;
         const dx = baseX - pointer.x * width;
         const dy = baseY - pointer.y * height;
-        const dist = Math.hypot(dx, dy);
-        const influence = Math.max(0, 1 - dist / 240);
+        const distSq = dx * dx + dy * dy;
+        const dist = distSq < 90000 ? Math.sqrt(distSq) : 9999;
+        const influence = distSq < 90000
+          ? wallMask(pointer.x, pointer.y) * Math.max(0, 1 - dist / 300)
+          : 0;
         let burstBoost = 0;
-        let burstPhase = 0;
+        let burstPush = 0;
 
         for (const burst of bursts) {
-          const age = (ms - burst.start) / 760;
+          const age = (ms - burst.start) / 980;
           const rd = Math.hypot(baseX - burst.x * width, baseY - burst.y * height);
-          const local = Math.max(0, 1 - rd / 190);
-          const wave = 0.5 + 0.5 * Math.sin(age * Math.PI * 7 - rd * 0.045);
-          const boost = local * (1 - age) * (0.45 + wave * 0.55) * burst.strength;
+          const ring = Math.max(0, 1 - Math.abs(rd - age * 390) / 68);
+          const local = Math.max(0, 1 - rd / 330);
+          const boost = (ring * 0.85 + local * 0.18) * (1 - age) * burst.strength;
           burstBoost += boost;
-          burstPhase += boost * wave;
+          burstPush += boost * (42 + age * 46);
         }
 
-        const push = influence * 22 + burstBoost * 30;
+        const swirl = influence * (22 + p.z * 18) + burstBoost * 18;
+        const push = influence * (24 + p.z * 18) + burstPush;
         const safeDist = Math.max(1, dist);
-        const x = baseX + (dx / safeDist) * push;
-        const y = baseY + (dy / safeDist) * push + Math.sin(t * 1.8 + g.phase) * influence * 3 - burstBoost * 5;
-        const pulse = 0.5 + 0.5 * Math.sin(t * 1.4 + g.phase);
-        const alpha = Math.min(0.9, 0.055 + mask * 0.16 + influence * 0.5 + burstBoost * 0.58 + pulse * 0.035);
-        const glyph = burstBoost > 0.18
-          ? glyphs[(Math.floor((g.phase + burstPhase) * 10) + glyphs.length) % glyphs.length]
-          : (influence > 0.46 ? ">" : g.glyph);
+        const x = baseX + (dx / safeDist) * push + (-dy / safeDist) * swirl;
+        const y = baseY + (dy / safeDist) * push + (dx / safeDist) * swirl * 0.48 - burstBoost * 14;
+        const pulse = 0.5 + 0.5 * Math.sin(t * 1.75 + p.phase);
+        const edgeFade = Math.pow(mask, 1.08);
+        const sourceLight = (p.r + p.g + p.b) / 765;
+        const idleAlpha = (0.085 + sourceLight * 0.28 + p.z * 0.052 + pulse * 0.04) * (0.58 + breath * 0.5);
+        const activeAlpha = influence * 0.42 + burstBoost * 0.62;
+        const alpha = Math.min(0.92, (idleAlpha + activeAlpha) * edgeFade);
+        const radius = p.size * (0.82 + p.z * 0.52 + breath * 0.26) + influence * 0.2 + burstBoost * 0.42;
+        const color = {
+          r: Math.min(255, Math.round(p.r * 0.99 + 34 + breath * 14 + influence * 34 + burstBoost * 48)),
+          g: Math.min(255, Math.round(p.g * 0.99 + 30 + breath * 12 + influence * 32 + burstBoost * 44)),
+          b: Math.min(255, Math.round(p.b * 1.0 + 38 + breath * 15 + influence * 38 + burstBoost * 48))
+        };
 
-        ctx.fillStyle = `rgba(238,246,255,${alpha})`;
-        ctx.fillText(glyph, x, y);
+        drawParticle(x, y, radius, alpha, color, Math.max(influence, burstBoost));
       }
 
-      ctx.lineWidth = 1;
-      for (let row = 0; row < 11; row++) {
-        const ny = 0.28 + row * 0.042;
-        const phase = t * 0.42 + row * 0.8;
-        ctx.beginPath();
-        for (let i = 0; i < 66; i++) {
-          const nx = 0.08 + i * 0.013;
-          const y = (ny + Math.sin(i * 0.22 + phase) * 0.006 + Math.sin(nx * Math.PI) * 0.025) * height;
-          const x = nx * width;
-          if (i === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        }
-        ctx.strokeStyle = `rgba(212,235,255,${0.018 + row * 0.003})`;
-        ctx.stroke();
-      }
-
-      ctx.globalCompositeOperation = "screen";
       for (const burst of bursts) {
-        const age = (ms - burst.start) / 760;
-        drawBlob(burst.x * width, burst.y * height, Math.max(width, height) * (0.06 + age * 0.04),
-          `rgba(232,244,255,${(1 - age) * burst.strength * 0.12})`,
+        const age = (ms - burst.start) / 980;
+        drawBlob(burst.x * width, burst.y * height, Math.max(width, height) * (0.025 + age * 0.05),
+          `rgba(232,244,255,${(1 - age) * burst.strength * 0.025})`,
           "rgba(232,244,255,0)");
       }
 
-      if (!prefersReducedMotion) {
-        requestAnimationFrame(frame);
-      }
+      requestAnimationFrame(frame);
     }
 
     requestAnimationFrame(frame);
